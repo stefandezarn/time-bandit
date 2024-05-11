@@ -26,7 +26,7 @@ h1 {
 }
 
 .timer {
-    width: calc(33.33% - 80px);
+    width: calc(33.33% - 20px);
     height: 200px;
     margin-bottom: 20px;
     padding: 20px;
