@@ -15,39 +15,34 @@ document.addEventListener("DOMContentLoaded", function() {
         const timerDiv = document.createElement("div");
         timerDiv.classList.add("timer");
 
-        // Create a div to display the timer name
         const timerNameDisplay = document.createElement("div");
         timerNameDisplay.textContent = timerName;
         timerNameDisplay.classList.add("timer-name");
 
-        // Create a div to display the elapsed time in both formats
         const timeDisplay = document.createElement("div");
         timeDisplay.classList.add("time-display");
-        timeDisplay.textContent = "00:00:00 (0.00 hours)"; // Initial display in hh:mm:ss and fractional hours
+        timeDisplay.textContent = "00:00:00 (0.00 hours)";
 
-        // Create a reset button
         const resetButton = document.createElement("button");
         resetButton.textContent = "Reset";
         resetButton.classList.add("reset-btn");
 
-        // Append elements to the timer container div
         timerDiv.appendChild(timerNameDisplay);
         timerDiv.appendChild(timeDisplay);
         timerDiv.appendChild(resetButton);
 
-        // Associate timer object with timerDiv
         const timer = {
             timerDiv: timerDiv,
             timeDisplay: timeDisplay,
             startTime: null,
-            elapsedTime: 0, // Store time in milliseconds
+            elapsedTime: 0,
             timerInterval: null,
-            running: false
+            running: false,
+            timerName: timerName // Store the name
         };
 
         timerDiv.timer = timer;
 
-        // Add click event listener to timerDiv (start/stop)
         timerDiv.addEventListener("click", function() {
             if (!timer.running) {
                 startTimer(timer);
@@ -56,31 +51,28 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         });
 
-        // Add click event listener to reset button
         resetButton.addEventListener("click", function(event) {
-            event.stopPropagation();  // Prevent triggering the start/stop timer
+            event.stopPropagation();
             resetTimer(timer);
         });
 
-        // Make the time display editable
         timeDisplay.addEventListener("click", function() {
-            const currentTime = timeDisplay.textContent.split(" ")[0];  // Get current time in hh:mm:ss (e.g., "1:30:45")
+            const currentTime = timeDisplay.textContent.split(" ")[0];
             const [hours, minutes, seconds] = currentTime.split(":").map(Number);
-            const currentTimeInHours = (hours + minutes / 60 + seconds / 3600).toFixed(2); // Convert to fractional hours
+            const currentTimeInHours = (hours + minutes / 60 + seconds / 3600).toFixed(2);
             const newTimeInput = prompt("Edit time in fractional hours (e.g., 1.25 for 1 hour and 15 minutes)", currentTimeInHours);
             if (newTimeInput) {
                 let newTimeInHours = parseFloat(newTimeInput);
                 if (isValidFractionalHours(newTimeInHours)) {
-                    // Convert fractional hours to milliseconds
-                    const newTimeInMillis = newTimeInHours * 3600000; // 1 hour = 3600000 milliseconds
+                    const newTimeInMillis = newTimeInHours * 3600000;
                     updateTimerDisplay(timer, newTimeInMillis);
+                    sendToFirestore(timer.timerName, newTimeInMillis); // Send updated data to Firestore
                 } else {
                     alert("Invalid time format. Please enter a positive number in increments of 0.25.");
                 }
             }
         });
 
-        // Center the timers horizontally
         timersContainer.appendChild(timerDiv);
     }
 
@@ -101,16 +93,22 @@ document.addEventListener("DOMContentLoaded", function() {
         timer.running = false;
         timer.timerDiv.classList.remove("running");
         timer.timerDiv.classList.add("stopped");
+
+        // Send timer data to Firestore when stopped
+        sendToFirestore(timer.timerName, timer.elapsedTime);
     }
 
     function resetTimer(timer) {
-        clearInterval(timer.timerInterval); // Stop the timer if it's running
+        clearInterval(timer.timerInterval);
         timer.elapsedTime = 0;
         timer.running = false;
         timer.startTime = null;
-        updateDisplay(timer); // Update the display to 00:00:00 and 0.00 hours
+        updateDisplay(timer);
         timer.timerDiv.classList.remove("running");
         timer.timerDiv.classList.add("stopped");
+
+        // Send reset timer data to Firestore
+        sendToFirestore(timer.timerName, timer.elapsedTime);
     }
 
     function updateTime(timer) {
@@ -119,9 +117,9 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function updateDisplay(timer) {
-        const formattedTime = formatTime(timer.elapsedTime); // Format in hh:mm:ss
-        const fractionalHours = (timer.elapsedTime / 3600000).toFixed(2); // Convert to fractional hours
-        const roundedQuarterHours = Math.ceil(timer.elapsedTime / 900000) * 0.25; // Round to the nearest quarter hour
+        const formattedTime = formatTime(timer.elapsedTime);
+        const fractionalHours = (timer.elapsedTime / 3600000).toFixed(2);
+        const roundedQuarterHours = Math.ceil(timer.elapsedTime / 900000) * 0.25;
         timer.timeDisplay.textContent = `${formattedTime} (${roundedQuarterHours.toFixed(2)} hours)`;
     }
 
@@ -144,5 +142,21 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function isValidFractionalHours(hours) {
         return !isNaN(hours) && hours >= 0 && hours % 0.25 === 0;
+    }
+
+    // Send data to Firestore (as shown above)
+    function sendToFirestore(timerName, elapsedTimeMillis) {
+        const fractionalHours = (elapsedTimeMillis / 3600000).toFixed(2);
+
+        db.collection("timers").add({
+            name: timerName,
+            elapsedTimeMillis: elapsedTimeMillis,
+            fractionalHours: fractionalHours,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(() => {
+            console.log("Timer data sent to Firestore.");
+        }).catch((error) => {
+            console.error("Error sending data to Firestore: ", error);
+        });
     }
 });
