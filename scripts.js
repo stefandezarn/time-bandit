@@ -64,6 +64,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
         // Make the time display editable
         timeDisplay.addEventListener("click", function() {
+            event.stopPropagation();
             const currentTime = timeDisplay.textContent.split(" ")[0];  // Get current time in hh:mm:ss (e.g., "1:30:45")
             const [hours, minutes, seconds] = currentTime.split(":").map(Number);
             const currentTimeInHours = (hours + minutes / 60 + seconds / 3600).toFixed(2); // Convert to fractional hours
