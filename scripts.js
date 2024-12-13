@@ -18,35 +18,64 @@ document.addEventListener("DOMContentLoaded", function() {
         // Create a div to display the timer name
         const timerNameDisplay = document.createElement("div");
         timerNameDisplay.textContent = timerName;
-        timerNameDisplay.classList.add("timer-name"); // Add class for styling
+        timerNameDisplay.classList.add("timer-name");
 
-        // Create a div to display the elapsed time
+        // Create a div to display the elapsed time in hours
         const timeDisplay = document.createElement("div");
         timeDisplay.classList.add("time-display");
-        timeDisplay.textContent = "00:00:00 (0.00 hours)";
+        timeDisplay.textContent = "0.00 hours"; // Initial display in hours
+
+        // Create a reset button
+        const resetButton = document.createElement("button");
+        resetButton.textContent = "Reset";
+        resetButton.classList.add("reset-btn");
 
         // Append elements to the timer container div
         timerDiv.appendChild(timerNameDisplay);
         timerDiv.appendChild(timeDisplay);
+        timerDiv.appendChild(resetButton);
 
         // Associate timer object with timerDiv
         const timer = {
             timerDiv: timerDiv,
             timeDisplay: timeDisplay,
             startTime: null,
-            elapsedTime: 0,
+            elapsedTime: 0, // Store time in milliseconds
             timerInterval: null,
-            running: false // Flag to track timer state
+            running: false
         };
 
         timerDiv.timer = timer;
 
-        // Add click event listener to timerDiv
+        // Add click event listener to timerDiv (start/stop)
         timerDiv.addEventListener("click", function() {
             if (!timer.running) {
                 startTimer(timer);
             } else {
                 stopTimer(timer);
+            }
+        });
+
+        // Add click event listener to reset button
+        resetButton.addEventListener("click", function(event) {
+            event.stopPropagation();  // Prevent triggering the start/stop timer
+            resetTimer(timer);
+        });
+
+        // Make the time display editable
+        timeDisplay.addEventListener("click", function() {
+            const currentTime = timeDisplay.textContent.split(" ")[0];  // Get current time in hours (e.g., "1.50")
+            const currentTimeInHours = parseFloat(currentTime);
+            const newTimeInput = prompt("Edit time in hours (e.g., 1.50 for 1 hour and 30 minutes)", currentTimeInHours.toFixed(2));
+            if (newTimeInput) {
+                const newTimeInHours = parseFloat(newTimeInput);
+                if (!isNaN(newTimeInHours) && newTimeInHours >= 0) {
+                    // Convert hours to milliseconds
+                    const newTimeInMillis = newTimeInHours * 3600000; // 1 hour = 3600000 milliseconds
+                    updateTimerDisplay(timer, newTimeInMillis);
+                } else {
+                    alert("Invalid time format. Please enter a positive number.");
+                }
             }
         });
 
@@ -73,26 +102,28 @@ document.addEventListener("DOMContentLoaded", function() {
         timer.timerDiv.classList.add("stopped");
     }
 
+    function resetTimer(timer) {
+        clearInterval(timer.timerInterval); // Stop the timer if it's running
+        timer.elapsedTime = 0;
+        timer.running = false;
+        timer.startTime = null;
+        updateDisplay(timer); // Update the display to 0.00 hours
+        timer.timerDiv.classList.remove("running");
+        timer.timerDiv.classList.add("stopped");
+    }
+
     function updateTime(timer) {
         const currentTime = Date.now();
         timer.elapsedTime = currentTime - timer.startTime;
     }
 
     function updateDisplay(timer) {
-        const formattedTime = formatTime(timer.elapsedTime);
-        const roundedQuarterHours = Math.ceil(timer.elapsedTime / 900000) * 0.25; // Convert milliseconds to hours and round up to the nearest quarter hour
-        timer.timeDisplay.textContent = `${formattedTime} (${roundedQuarterHours.toFixed(2)} hours)`;
+        const formattedTime = (timer.elapsedTime / 3600000).toFixed(2); // Convert milliseconds to hours and display to 2 decimal points
+        timer.timeDisplay.textContent = `${formattedTime} hours`;
     }
 
-    function formatTime(milliseconds) {
-        const totalSeconds = Math.floor(milliseconds / 1000);
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-        return pad(hours) + ":" + pad(minutes) + ":" + pad(seconds);
-    }
-
-    function pad(num) {
-        return num.toString().padStart(2, "0");
+    function updateTimerDisplay(timer, newTimeInMillis) {
+        timer.elapsedTime = newTimeInMillis;
+        updateDisplay(timer);
     }
 });
