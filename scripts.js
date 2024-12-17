@@ -1,53 +1,69 @@
+// Initialize Firebase
+const firebaseConfig = {
+  apiKey: "your-api-key",
+  authDomain: "your-auth-domain",
+  projectId: "your-project-id",
+  storageBucket: "your-storage-bucket",
+  messagingSenderId: "your-sender-id",
+  appId: "your-app-id"
+};
+
+// Initialize Firebase app
+const app = firebase.initializeApp(firebaseConfig);
+
+// Initialize Firestore
+const db = firebase.firestore();
+
 document.addEventListener("DOMContentLoaded", function() {
     const addTimerBtn = document.getElementById("addTimerBtn");
     const timersContainer = document.getElementById("timers");
     let timerCount = 0;
 
-    addTimerBtn.addEventListener("click", function() {
+    addTimerBtn.addEventListener("click", async function() {
         const timerName = prompt("Enter timer name:");
         if (timerName) {
-            createTimer(timerName);
+            const newTimer = await createTimer(timerName);
+            // Save the new timer to Firestore
+            saveTimerToFirestore(newTimer);
         }
     });
 
-    function createTimer(timerName) {
+    // Function to create a new timer
+    async function createTimer(timerName) {
         timerCount++;
         const timerDiv = document.createElement("div");
         timerDiv.classList.add("timer");
 
-        // Create a div to display the timer name
         const timerNameDisplay = document.createElement("div");
         timerNameDisplay.textContent = timerName;
         timerNameDisplay.classList.add("timer-name");
 
-        // Create a div to display the elapsed time in both formats
         const timeDisplay = document.createElement("div");
         timeDisplay.classList.add("time-display");
         timeDisplay.textContent = "00:00:00 (0.00 hours)"; // Initial display in hh:mm:ss and fractional hours
 
-        // Create a reset button
         const resetButton = document.createElement("button");
         resetButton.textContent = "Reset";
         resetButton.classList.add("reset-btn");
 
-        // Append elements to the timer container div
         timerDiv.appendChild(timerNameDisplay);
         timerDiv.appendChild(timeDisplay);
         timerDiv.appendChild(resetButton);
 
-        // Associate timer object with timerDiv
         const timer = {
             timerDiv: timerDiv,
             timeDisplay: timeDisplay,
+            name: timerName,
+            elapsedTime: 0, // Time in milliseconds
+            running: false,
+            state: "stopped",
             startTime: null,
-            elapsedTime: 0, // Store time in milliseconds
-            timerInterval: null,
-            running: false
+            timerInterval: null
         };
 
         timerDiv.timer = timer;
 
-        // Add click event listener to timerDiv (start/stop)
+        // Add click event to start/stop timer
         timerDiv.addEventListener("click", function() {
             if (!timer.running) {
                 startTimer(timer);
@@ -56,35 +72,47 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         });
 
-        // Add click event listener to reset button
+        // Add reset event
         resetButton.addEventListener("click", function(event) {
-            event.stopPropagation();  // Prevent triggering the start/stop timer
+            event.stopPropagation();
             resetTimer(timer);
         });
 
-        // Make the time display editable
-        timeDisplay.addEventListener("click", function() {
-            event.stopPropagation();
-            const currentTime = timeDisplay.textContent.split(" ")[0];  // Get current time in hh:mm:ss (e.g., "1:30:45")
-            const [hours, minutes, seconds] = currentTime.split(":").map(Number);
-            const currentTimeInHours = (hours + minutes / 60 + seconds / 3600).toFixed(2); // Convert to fractional hours
-            const newTimeInput = prompt("Edit time in fractional hours (e.g., 1.25 for 1 hour and 15 minutes)", currentTimeInHours);
-            if (newTimeInput) {
-                let newTimeInHours = parseFloat(newTimeInput);
-                if (isValidFractionalHours(newTimeInHours)) {
-                    // Convert fractional hours to milliseconds
-                    const newTimeInMillis = newTimeInHours * 3600000; // 1 hour = 3600000 milliseconds
-                    updateTimerDisplay(timer, newTimeInMillis);
+        // Make the timer name editable
+        timerNameDisplay.addEventListener("click", function() {
+            const originalName = timerNameDisplay.textContent;
+            const input = document.createElement("input");
+            input.type = "text";
+            input.value = originalName;
+            input.classList.add("name-edit-input");
+
+            timerNameDisplay.textContent = '';
+            timerNameDisplay.appendChild(input);
+            input.focus();
+
+            input.addEventListener("blur", function() {
+                const newName = input.value.trim();
+                if (newName && newName !== originalName) {
+                    timer.name = newName;  // Update the name in the timer object
+                    timerNameDisplay.textContent = newName;
+                    updateFirestoreTimer(timer);  // Update Firestore with the new name
                 } else {
-                    alert("Invalid time format. Please enter a positive number in increments of 0.25.");
+                    timerNameDisplay.textContent = originalName;
                 }
-            }
+            });
+
+            input.addEventListener("keydown", function(event) {
+                if (event.key === "Enter") {
+                    input.blur(); // Save on Enter
+                }
+            });
         });
 
-        // Center the timers horizontally
         timersContainer.appendChild(timerDiv);
+        return timer;
     }
 
+    // Start the timer
     function startTimer(timer) {
         timer.startTime = Date.now() - timer.elapsedTime;
         timer.timerInterval = setInterval(function() {
@@ -92,58 +120,33 @@ document.addEventListener("DOMContentLoaded", function() {
             updateDisplay(timer);
         }, 1000);
         timer.running = true;
+        timer.state = "running";
         timer.timerDiv.classList.add("running");
         timer.timerDiv.classList.remove("stopped");
     }
 
+    // Stop the timer
     function stopTimer(timer) {
         clearInterval(timer.timerInterval);
         timer.elapsedTime = Date.now() - timer.startTime;
         timer.running = false;
+        timer.state = "stopped";
         timer.timerDiv.classList.remove("running");
         timer.timerDiv.classList.add("stopped");
+        updateFirestoreTimer(timer);  // Update Firestore with the new state
     }
 
+    // Reset the timer
     function resetTimer(timer) {
-        clearInterval(timer.timerInterval); // Stop the timer if it's running
+        clearInterval(timer.timerInterval);
         timer.elapsedTime = 0;
         timer.running = false;
+        timer.state = "stopped";
         timer.startTime = null;
-        updateDisplay(timer); // Update the display to 00:00:00 and 0.00 hours
+        updateDisplay(timer);  // Update the display
         timer.timerDiv.classList.remove("running");
         timer.timerDiv.classList.add("stopped");
+        updateFirestoreTimer(timer);  // Update Firestore with the new state
     }
 
-    function updateTime(timer) {
-        const currentTime = Date.now();
-        timer.elapsedTime = currentTime - timer.startTime;
-    }
-
-    function updateDisplay(timer) {
-        const formattedTime = formatTime(timer.elapsedTime); // Format in hh:mm:ss
-        const fractionalHours = (timer.elapsedTime / 3600000).toFixed(2); // Convert to fractional hours
-        const roundedQuarterHours = Math.ceil(timer.elapsedTime / 900000) * 0.25; // Round to the nearest quarter hour
-        timer.timeDisplay.textContent = `${formattedTime} (${roundedQuarterHours.toFixed(2)} hours)`;
-    }
-
-    function formatTime(milliseconds) {
-        const totalSeconds = Math.floor(milliseconds / 1000);
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-        return pad(hours) + ":" + pad(minutes) + ":" + pad(seconds);
-    }
-
-    function pad(num) {
-        return num.toString().padStart(2, "0");
-    }
-
-    function updateTimerDisplay(timer, newTimeInMillis) {
-        timer.elapsedTime = newTimeInMillis;
-        updateDisplay(timer);
-    }
-
-    function isValidFractionalHours(hours) {
-        return !isNaN(hours) && hours >= 0 && hours % 0.25 === 0;
-    }
-});
+    // Update Firestore with the latest
