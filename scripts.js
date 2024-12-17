@@ -20,6 +20,14 @@ document.addEventListener("DOMContentLoaded", function() {
         timerNameDisplay.textContent = timerName;
         timerNameDisplay.classList.add("timer-name");
 
+        // Add event listener to timerNameDisplay for renaming the timer
+        timerNameDisplay.addEventListener("click", function() {
+            const newName = prompt("Enter a new name for the timer:", timerNameDisplay.textContent);
+            if (newName && newName !== timerNameDisplay.textContent) {
+                timerNameDisplay.textContent = newName;  // Update the timer's name
+            }
+        });
+
         // Create a div to display the elapsed time in both formats
         const timeDisplay = document.createElement("div");
         timeDisplay.classList.add("time-display");
