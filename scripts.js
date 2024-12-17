@@ -20,6 +20,14 @@ document.addEventListener("DOMContentLoaded", function() {
         timerNameDisplay.textContent = timerName;
         timerNameDisplay.classList.add("timer-name");
 
+        // Add event listener to timerNameDisplay for renaming the timer
+        timerNameDisplay.addEventListener("click", function() {
+            const newName = prompt("Enter a new name for the timer:", timerNameDisplay.textContent);
+            if (newName && newName !== timerNameDisplay.textContent) {
+                timerNameDisplay.textContent = newName;  // Update the timer's name
+            }
+        });
+
         // Create a div to display the elapsed time in both formats
         const timeDisplay = document.createElement("div");
         timeDisplay.classList.add("time-display");
@@ -63,7 +71,7 @@ document.addEventListener("DOMContentLoaded", function() {
         });
 
         // Make the time display editable
-        timeDisplay.addEventListener("click", function() {
+        timeDisplay.addEventListener("click", function(event) {
             event.stopPropagation();
             const currentTime = timeDisplay.textContent.split(" ")[0];  // Get current time in hh:mm:ss (e.g., "1:30:45")
             const [hours, minutes, seconds] = currentTime.split(":").map(Number);
