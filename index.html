@@ -36,6 +36,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
 	
     <script src="scripts.js"></script>
+	// 1. Create a simple UI overlay
+const logger = document.createElement('div');
+logger.style = "position:fixed; bottom:0; right:0; width:300px; height:200px; background:#000; color:#0f0; overflow:y-scroll; z-index:9999; font-family:monospace; padding:10px; font-size:12px; opacity:0.8;";
+logger.innerHTML = "<b>GA4 Live Hit Logger:</b><br>";
+document.body.appendChild(logger);
+
+// 2. Intercept sendBeacon (The primary method GA4 uses)
+const originalSendBeacon = navigator.sendBeacon;
+navigator.sendBeacon = function(url, data) {
+    if (url.includes("google-analytics.com/g/collect")) {
+        const params = new URLSearchParams(data);
+        const eventName = params.get('en');
+        logger.innerHTML += `> Sent Event: <b>${eventName}</b><br>`;
+        logger.scrollTop = logger.scrollHeight;
+    }
+    return originalSendBeacon.apply(this, arguments);
+};
 </body>
 </html>
 
